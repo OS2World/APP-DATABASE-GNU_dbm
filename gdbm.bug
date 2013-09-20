@@ -1,0 +1,30 @@
+From NewsServ!fauern!ira.uka.de!sol.ctr.columbia.edu!spool.mu.edu!sdd.hp.com!elroy.jpl.nasa.gov!usc!ucsd!ucbvax!tut.cis.ohio-state.edu!unreplyable!garbage Wed Apr 10 08:51:32 MET DST 1991
+Article: 1538 of gnu.utils.bug
+Path: NewsServ!fauern!ira.uka.de!sol.ctr.columbia.edu!spool.mu.edu!sdd.hp.com!elroy.jpl.nasa.gov!usc!ucsd!ucbvax!tut.cis.ohio-state.edu!unreplyable!garbage
+From: schulte@thp.uni-koeln.de
+Newsgroups: gnu.utils.bug
+Subject: gdbm-1.5 gdbm_reorganize() does not free memory
+Message-ID: <9104052012.AA17668@sun0.thp.Uni-Koeln.DE>
+Date: 5 Apr 91 20:12:47 GMT
+Article-I.D.: sun0.9104052012.AA17668
+Sender: daemon@tut.cis.ohio-state.edu
+Distribution: gnu
+Organization: GNUs Not Usenet
+Lines: 13
+Approved: bug-gnu-utils@prep.ai.mit.edu
+
+The gdbm_reorganize routine of gdbm-1.5 does not free content.dptr which
+can seriously increase the size of the program's memory-usage.
+
+A free(content.dptr) just before or after the free(key.dptr) should fix
+this.
+
+Martin
+--
+Martin Schulte
+Institute for Theoretical Physics
+University of Cologne/Germany
+
+Internet: schulte@thp.uni-koeln.de
+
+

@@ -1,0 +1,1721 @@
+Only in new: Gdbm.bug
+Only in new: patches.os2
+Only in new: Makefile.dos
+Only in new: mkgdbmh.cmd
+Only in new: gdbm.cs
+Only in new: gdbm.def
+Only in new: testdbm.cs
+Only in new: testgdbm.cs
+Only in new: testndbm.cs
+Only in new: getopt.c
+Only in new: getopt.h
+Only in new: getopt1.c
+diff -cbBwr orig/bucket.c new/bucket.c
+*** orig/bucket.c	Fri Mar 22 17:26:36 1991
+--- new/bucket.c	Thu May 23 20:03:52 1991
+***************
+*** 59,65 ****
+     is already in memory.  If not, a bucket may be tossed to read the new
+     bucket.  In any case, the requested bucket is make the "current" bucket
+     and dbf->bucket points to the correct bucket. */
+! int
+  _gdbm_get_bucket (dbf, dir_index)
+       gdbm_file_info *dbf;
+       long dir_index;
+--- 59,65 ----
+     is already in memory.  If not, a bucket may be tossed to read the new
+     bucket.  In any case, the requested bucket is make the "current" bucket
+     and dbf->bucket points to the correct bucket. */
+! void
+  _gdbm_get_bucket (dbf, dir_index)
+       gdbm_file_info *dbf;
+       long dir_index;
+***************
+*** 114,120 ****
+  void
+  _gdbm_split_bucket (dbf, next_insert)
+       gdbm_file_info *dbf;
+!      int next_insert;
+  {
+    hash_bucket *bucket[2]; 	/* Pointers to the new buckets. */
+  
+--- 114,120 ----
+  void
+  _gdbm_split_bucket (dbf, next_insert)
+       gdbm_file_info *dbf;
+!      long next_insert;
+  {
+    hash_bucket *bucket[2]; 	/* Pointers to the new buckets. */
+  
+***************
+*** 184,190 ****
+  	  dir_adr  = _gdbm_alloc (dbf, dir_size);
+  	  new_dir  = (long *) malloc (dir_size);
+  	  if (new_dir == NULL) _gdbm_fatal (dbf, "malloc error");
+! 	  for (index = 0; index < dbf->header->dir_size/sizeof (int); index++)
+  	    {
+  	      new_dir[2*index]   = dbf->dir[index];
+  	      new_dir[2*index+1] = dbf->dir[index];
+--- 184,190 ----
+  	  dir_adr  = _gdbm_alloc (dbf, dir_size);
+  	  new_dir  = (long *) malloc (dir_size);
+  	  if (new_dir == NULL) _gdbm_fatal (dbf, "malloc error");
+! 	  for (index = 0; index < dbf->header->dir_size/sizeof (long); index++)
+  	    {
+  	      new_dir[2*index]   = dbf->dir[index];
+  	      new_dir[2*index+1] = dbf->dir[index];
+***************
+*** 209,216 ****
+--- 209,221 ----
+        for (index = 0; index < dbf->header->bucket_elems; index++)
+  	{
+  	  old_el = & (dbf->bucket->h_table[index]);
++ #ifdef MSDOS
++ 	  select = (int) (old_el->hash_value >> (31-new_bits)) & 1;
++ 	  elem_loc = (int) (old_el->hash_value % dbf->header->bucket_elems);
++ #else /* not MSDOS */
+  	  select = (old_el->hash_value >> (31-new_bits)) & 1;
+  	  elem_loc = old_el->hash_value % dbf->header->bucket_elems;
++ #endif /* not MSDOS */
+  	  while (bucket[select]->h_table[elem_loc].hash_value != -1)
+  	    elem_loc = (elem_loc + 1) % dbf->header->bucket_elems;
+  	  bucket[select]->h_table[elem_loc] = *old_el;
+***************
+*** 260,266 ****
+--- 265,275 ----
+        dbf->second_changed = TRUE;
+  
+        /* Update the cache! */
++ #ifdef MSDOS
++       dbf->bucket_dir = (int) (next_insert >> (31-dbf->header->dir_bits));
++ #else /* not MSDOS */
+        dbf->bucket_dir = next_insert >> (31-dbf->header->dir_bits);
++ #endif /* not MSDOS */
+  
+        /* Invalidate old cache entry. */
+        old_bucket.av_adr  = dbf->cache_entry->ca_adr;
+***************
+*** 296,302 ****
+  
+  /* The only place where a bucket is written.  CA_ENTRY is the
+     cache entry containing the bucket to be written. */
+! 
+  _gdbm_write_bucket (dbf, ca_entry)
+       gdbm_file_info *dbf;
+       cache_elem *ca_entry;
+--- 305,311 ----
+  
+  /* The only place where a bucket is written.  CA_ENTRY is the
+     cache entry containing the bucket to be written. */
+! void
+  _gdbm_write_bucket (dbf, ca_entry)
+       gdbm_file_info *dbf;
+       cache_elem *ca_entry;
+diff -cbBwr orig/dbm.h new/dbm.h
+*** orig/dbm.h	Fri Mar 22 17:26:36 1991
+--- new/dbm.h	Thu May 23 19:26:30 1991
+***************
+*** 34,55 ****
+        } datum;
+  
+  
+- /* These are the routines in dbm. */
+  
+! extern int	dbminit ();
+  
+  extern datum	fetch ();
+- 
+  extern int	store ();
+- 
+  extern int	delete ();
+- 
+- extern int	delete ();
+- 
+  extern datum	firstkey ();
+- 
+  extern datum	nextkey ();
+! 
+! /* To make some versions work we need the following define. */
+! 
+! #define dbmclose()
+--- 34,56 ----
+        } datum;
+  
+  
+  
+! /* To make some versions work we need the following define. */
+  
++ #define dbmclose()
++ /* These are the routines in dbm. */
++ #ifdef __STDC__
++ extern  int dbminit (char *file);
++ extern datum fetch(datum key);
++ extern int store (datum key, datum content);
++ extern int delete (datum key);
++ extern datum firstkey (void);
++ extern datum nextkey (datum key);
++ #else /* not __STDC__ */
++ extern int	dbminit ();
+  extern datum	fetch ();
+  extern int	store ();
+  extern int	delete ();
+  extern datum	firstkey ();
+  extern datum	nextkey ();
+! #endif /* not __STDC__ */
+diff -cbBwr orig/dbminit.c new/dbminit.c
+*** orig/dbminit.c	Fri Mar 22 17:26:34 1991
+--- new/dbminit.c	Thu May 23 19:26:36 1991
+***************
+*** 87,93 ****
+--- 87,97 ----
+    if (stat (dir_file, &dir_stat) == 0)
+      {
+        if (dir_stat.st_size == 0)
++ #ifdef MSDOS
++         if (open (dir_file, O_RDWR|O_TRUNC, S_IREAD|S_IWRITE) < 0)
++ #else /* not MSDOS */
+  	if (unlink (dir_file) != 0 || link (pag_file, dir_file) != 0)
++ #endif /* not MSDOS */
+  	  {
+  	    gdbm_errno = GDBM_FILE_OPEN_ERROR;
+  	    gdbm_close (_gdbm_file);
+***************
+*** 98,104 ****
+--- 102,112 ----
+      {
+        /* Since we can't stat it, we assume it is not there and try
+           to link the dir_file to the pag_file. */
++ #ifdef MSDOS
++       if (open (dir_file, O_RDWR|O_CREAT, S_IREAD|S_IWRITE) < 0)
++ #else /* not MSDOS */
+        if (link (pag_file, dir_file) != 0)
++ #endif /* not MSDOS */
+  	{
+  	  gdbm_errno = GDBM_FILE_OPEN_ERROR;
+  	  gdbm_close (_gdbm_file);
+diff -cbBwr orig/dbmopen.c new/dbmopen.c
+*** orig/dbmopen.c	Fri Mar 22 17:26:34 1991
+--- new/dbmopen.c	Thu May 23 19:26:36 1991
+***************
+*** 105,111 ****
+--- 105,115 ----
+    if (stat (dir_file, &dir_stat) == 0)
+      {
+        if (dir_stat.st_size == 0)
++ #ifdef MSDOS
++         if (open (dir_file, O_RDWR|O_TRUNC, S_IREAD|S_IWRITE) < 0)
++ #else /* not MSDOS */
+  	if (unlink (dir_file) != 0 || link (pag_file, dir_file) != 0)
++ #endif /* not MSDOS */
+  	  {
+  	    gdbm_errno = GDBM_FILE_OPEN_ERROR;
+  	    gdbm_close (temp_dbf);
+***************
+*** 116,122 ****
+--- 120,130 ----
+      {
+        /* Since we can't stat it, we assume it is not there and try
+           to link the dir_file to the pag_file. */
++ #ifdef MSDOS
++       if (open (dir_file, O_RDWR|O_CREAT, S_IREAD|S_IWRITE) < 0)
++ #else /* not MSDOS */
+        if (link (pag_file, dir_file) != 0)
++ #endif /* not MSDOS */
+  	{
+  	  gdbm_errno = GDBM_FILE_OPEN_ERROR;
+  	  gdbm_close (temp_dbf);
+diff -cbBwr orig/extern.h new/extern.h
+*** orig/extern.h	Fri Mar 22 17:26:36 1991
+--- new/extern.h	Thu May 23 19:26:52 1991
+***************
+*** 37,53 ****
+  
+  
+  /* External routines used. */
+! 
+  extern gdbm_file_info *gdbm_open ();
+- 
+  extern datum gdbm_fetch ();
+- 
+  extern datum gdbm_firstkey ();
+- 
+  extern datum gdbm_nextkey ();
+- 
+  extern int gdbm_delete ();
+- 
+  extern int gdbm_store ();
+  
+  extern void gdbm_close ();
+--- 37,56 ----
+  
+  
+  /* External routines used. */
+! #ifdef __STDC__
+! extern gdbm_file_info *gdbm_open (char *file, int block_size, int read_write, int mode, void (*fatal_func)());
+! extern datum gdbm_fetch (gdbm_file_info *dbf, datum key);
+! extern datum gdbm_firstkey (gdbm_file_info *dbf);
+! extern datum gdbm_nextkey (gdbm_file_info *dbf, datum key);
+! extern int gdbm_delete (gdbm_file_info *dbf, datum key);
+! extern int gdbm_reorganize (gdbm_file_info *dbf);
+! #else /* not __STDC__ */
+  extern gdbm_file_info *gdbm_open ();
+  extern datum gdbm_fetch ();
+  extern datum gdbm_firstkey ();
+  extern datum gdbm_nextkey ();
+  extern int gdbm_delete ();
+  extern int gdbm_store ();
++ #endif /* not __STDC__ */
+  
+  extern void gdbm_close ();
+diff -cbBwr orig/falloc.c new/falloc.c
+*** orig/falloc.c	Fri Mar 22 17:26:36 1991
+--- new/falloc.c	Thu May 23 20:04:30 1991
+***************
+*** 33,43 ****
+--- 33,51 ----
+  /* The forward definitions for this file.  See the functions for
+     the definition of the function. */
+  
++ #ifdef __STDC__
++ static avail_elem get_elem (int size, avail_elem *av_table, int *av_count);
++ static avail_elem get_block (int size, gdbm_file_info *dbf);
++ static void push_avail_block (gdbm_file_info *dbf);
++ static void pop_avail_block (gdbm_file_info *dbf);
++ static void adjust_bucket_avail (gdbm_file_info *dbf);
++ #else /* not __STDC__ */
+  static avail_elem get_elem ();
+  static avail_elem get_block ();
+  static push_avail_block ();
+  static pop_avail_block ();
+  static adjust_bucket_avail ();
++ #endif /* not __STDC__ */
+  
+  /* Allocate space in the file DBF for a block NUM_BYTES in length.  Return
+     the file address of the start of the block.
+***************
+*** 100,105 ****
+--- 108,114 ----
+     avail structure.  The value TRUE is returned if there were errors.  If no
+     errors occured, the value FALSE is returned. */
+  
++ int
+  _gdbm_free (dbf, file_adr, num_bytes)
+       gdbm_file_info *dbf;
+       long file_adr;
+***************
+*** 109,115 ****
+  
+    /* Is it too small to worry about? */
+    if (num_bytes <= IGNORE_SIZE)
+!     return;
+  
+    /* Initialize the avail element. */
+    temp.av_size = num_bytes;
+--- 118,124 ----
+  
+    /* Is it too small to worry about? */
+    if (num_bytes <= IGNORE_SIZE)
+!     return TRUE;		/* is that correct (was "return;")? -tho */
+  
+    /* Initialize the avail element. */
+    temp.av_size = num_bytes;
+***************
+*** 148,154 ****
+      adjust_bucket_avail (dbf);
+  
+    /* All work is done. */
+!   return;
+  }
+  
+  
+--- 157,163 ----
+      adjust_bucket_avail (dbf);
+  
+    /* All work is done. */
+!   return TRUE;			/* is that correct (was "return;")? -tho */
+  }
+  
+  
+***************
+*** 159,165 ****
+  /* Gets the avail block at the top of the stack and loads it into the
+     active avail block.  It does a "free" for itself! */
+  
+! static
+  pop_avail_block (dbf)
+       gdbm_file_info *dbf;
+  {
+--- 168,174 ----
+  /* Gets the avail block at the top of the stack and loads it into the
+     active avail block.  It does a "free" for itself! */
+  
+! static void
+  pop_avail_block (dbf)
+       gdbm_file_info *dbf;
+  {
+***************
+*** 189,201 ****
+  
+  /* Splits the header avail block and pushes half onto the avail stack. */
+  
+! static
+  push_avail_block (dbf)
+       gdbm_file_info *dbf;
+  {
+    int  num_bytes;
+    int  av_size;
+!   int  av_adr;
+    int  index;
+    long file_pos;
+    avail_block *temp;
+--- 198,210 ----
+  
+  /* Splits the header avail block and pushes half onto the avail stack. */
+  
+! static void
+  push_avail_block (dbf)
+       gdbm_file_info *dbf;
+  {
+    int  num_bytes;
+    int  av_size;
+!   long av_adr;
+    int  index;
+    long file_pos;
+    avail_block *temp;
+***************
+*** 216,221 ****
+--- 225,237 ----
+  
+    /* Split the header block. */
+    temp = (avail_block *) alloca (av_size);
++ #ifdef MSDOS
++   if (temp == (avail_block *) 0)
++     {
++       fprintf (stderr, "Error: alloca() failed in gdbm (%s).\n", __FILE__);
++       exit (-2);
++     }
++ #endif /* MSDOS */
+    /* Set the size to be correct AFTER the pop_avail_block. */
+    temp->size = dbf->header->avail.size;
+    temp->count = 0;
+***************
+*** 293,298 ****
+--- 309,315 ----
+  /* This routine inserts a single NEW_EL into the AV_TABLE block in
+     sorted order. This routine does no I/O. */
+  
++ int
+  _gdbm_put_av_elem (new_el, av_table, av_count)
+       avail_elem new_el;
+       avail_elem av_table[];
+***************
+*** 366,372 ****
+  
+  /*  When the header already needs writing, we can make sure the current
+      bucket has its avail block as close to 1/2 full as possible. */
+! static
+  adjust_bucket_avail (dbf)
+       gdbm_file_info *dbf;
+  {
+--- 383,389 ----
+  
+  /*  When the header already needs writing, we can make sure the current
+      bucket has its avail block as close to 1/2 full as possible. */
+! static void
+  adjust_bucket_avail (dbf)
+       gdbm_file_info *dbf;
+  {
+diff -cbBwr orig/findkey.c new/findkey.c
+*** orig/findkey.c	Fri Mar 22 17:26:36 1991
+--- new/findkey.c	Thu May 23 20:04:50 1991
+***************
+*** 100,106 ****
+--- 100,110 ----
+  
+    /* Compute hash value and load proper bucket.  */
+    *new_hash_val = _gdbm_hash (key);
++ #ifdef MSDOS			/* careful!!!! */
++   _gdbm_get_bucket (dbf, (int) (*new_hash_val>> (31-dbf->header->dir_bits)));
++ #else /* not MSDOS */
+    _gdbm_get_bucket (dbf, *new_hash_val>> (31-dbf->header->dir_bits));
++ #endif /* not MSDOS */
+  
+    /* Is the element the last one found for this bucket? */
+    if (*new_hash_val == dbf->cache_entry->ca_data.hash_val
+***************
+*** 114,120 ****
+--- 118,128 ----
+      }
+  
+    /* It is not the cached value, search for element in the bucket. */
++ #ifdef MSDOS			/* careful!!!  */
++   elem_loc = (int) (*new_hash_val % dbf->header->bucket_elems);
++ #else /* not MSDOS */
+    elem_loc = *new_hash_val % dbf->header->bucket_elems;
++ #endif /* not MSDOS */
+    home_loc = elem_loc;
+    bucket_hash_val = dbf->bucket->h_table[elem_loc].hash_value;
+    while (bucket_hash_val != -1)
+diff -cbBwr orig/gdbm.proto new/gdbm.proto
+*** orig/gdbm.proto	Fri Mar 22 17:26:34 1991
+--- new/gdbm.proto	Thu May 23 21:57:34 1991
+***************
+*** 53,72 ****
+  
+  /* These are the routines! */
+  
+  extern GDBM_FILE gdbm_open ();
+- 
+  extern void	 gdbm_close ();
+- 
+  extern datum	 gdbm_fetch ();
+- 
+  extern int	 gdbm_store ();
+- 
+  extern int	 gdbm_delete ();
+- 
+  extern datum	 gdbm_firstkey ();
+- 
+  extern datum	 gdbm_nextkey ();
+- 
+  extern int	 gdbm_reorganize ();
+! 
+! 
+--- 53,74 ----
+  
+  /* These are the routines! */
+  
++ #ifdef __STDC__
++ extern GDBM_FILE gdbm_open (char *, int, int, int, void (*) ());
++ extern void	 gdbm_close (gdbm_file_info *);
++ extern datum	 gdbm_fetch (gdbm_file_info *, datum);
++ extern int	 gdbm_store (gdbm_file_info *, datum, datum, int);
++ extern int	 gdbm_delete (gdbm_file_info *, datum);
++ extern datum	 gdbm_firstkey (gdbm_file_info *);
++ extern datum	 gdbm_nextkey (gdbm_file_info *, datum);
++ extern int	 gdbm_reorganize (gdbm_file_info *);
++ #else
+  extern GDBM_FILE gdbm_open ();
+  extern void	 gdbm_close ();
+  extern datum	 gdbm_fetch ();
+  extern int	 gdbm_store ();
+  extern int	 gdbm_delete ();
+  extern datum	 gdbm_firstkey ();
+  extern datum	 gdbm_nextkey ();
+  extern int	 gdbm_reorganize ();
+! #endif
+diff -cbBwr orig/gdbmdefs.h new/gdbmdefs.h
+*** orig/gdbmdefs.h	Fri Mar 22 17:26:36 1991
+--- new/gdbmdefs.h	Thu May 23 20:54:26 1991
+***************
+*** 26,36 ****
+--- 26,43 ----
+          phone:  (206) 676-3035
+  *************************************************************************/
+  
++ #ifdef __STDC__
++ #include <stdio.h>
++ #include <stdlib.h>
++ #include <string.h>
++ #endif /*not __STDC__ */
+  
+  /* Include the standard include files needed for gdbm. */
+  #include <stdio.h>
+  #include <sys/types.h>
++ #ifndef MSDOS
+  #include <sys/file.h>
++ #endif
+  #include <sys/stat.h>
+  #include "gdbmconst.h"
+  #include "systems.h"
+***************
+*** 198,200 ****
+--- 205,247 ----
+        } gdbm_file_info;
+  
+  
++ #ifdef __STDC__
++ extern void gdbm_close (gdbm_file_info *dbf);
++ extern int gdbm_delete (gdbm_file_info *dbf, datum key);
++ extern datum gdbm_fetch (gdbm_file_info *dbf, datum key);
++ extern gdbm_file_info *gdbm_open (char *file, int block_size, int read_write, int mode, void (*fatal_func)());
++ extern int gdbm_reorganize (gdbm_file_info *dbf);
++ extern datum gdbm_firstkey (gdbm_file_info *dbf);
++ extern datum gdbm_nextkey (gdbm_file_info *dbf, datum key);
++ extern int gdbm_store (gdbm_file_info *dbf, datum key, datum content, int flags);
++ 
++ extern void _gdbm_new_bucket (gdbm_file_info *dbf, hash_bucket *bucket, int bits);
++ extern void _gdbm_get_bucket (gdbm_file_info *dbf, long dir_index);
++ extern void _gdbm_split_bucket (gdbm_file_info *dbf, long next_insert);
++ extern void _gdbm_write_bucket (gdbm_file_info *dbf, cache_elem *ca_entry);
++ extern long _gdbm_alloc (gdbm_file_info *dbf, int num_bytes);
++ extern int _gdbm_free (gdbm_file_info *dbf, long file_adr, int num_bytes);
++ extern int _gdbm_put_av_elem (avail_elem new_el, avail_elem *av_table, int *av_count);
++ extern char *_gdbm_read_entry (gdbm_file_info *dbf, int elem_loc);
++ extern int _gdbm_findkey (gdbm_file_info *dbf, datum key, char **dptr, long *new_hash_val);
++ extern long _gdbm_hash (datum key);
++ extern void _gdbm_end_update (gdbm_file_info *dbf);
++ extern void _gdbm_fatal (gdbm_file_info *dbf, char *val);
++ 
++ extern  int dbminit (char *file);
++ extern datum fetch(datum key);
++ extern int store (datum key, datum content);
++ extern int delete (datum key);
++ extern datum firstkey (void);
++ extern datum nextkey (datum key);
++ 
++ extern gdbm_file_info *dbm_open (char *file, int flags, int mode);
++ extern void dbm_close (gdbm_file_info *dbf);
++ extern datum dbm_fetch (gdbm_file_info *dbf, datum key);
++ extern int dbm_store (gdbm_file_info *dbf, datum key, datum content, int flags);
++ extern int dbm_delete (gdbm_file_info *dbf, datum key);
++ extern datum dbm_firstkey (gdbm_file_info *dbf);
++ extern datum dbm_nextkey (gdbm_file_info *dbf);
++ extern int dbm_dirfno (gdbm_file_info *dbf);
++ extern int dbm_pagfno (gdbm_file_info *dbf);
++ #endif /* __STDC__ */
+diff -cbBwr orig/gdbmdele.c new/gdbmdele.c
+*** orig/gdbmdele.c	Fri Mar 22 17:26:34 1991
+--- new/gdbmdele.c	Thu May 23 19:27:10 1991
+***************
+*** 79,86 ****
+--- 79,91 ----
+    while (elem_loc != last_loc
+  	 && dbf->bucket->h_table[elem_loc].hash_value != -1)
+      {
++ #ifdef MSDOS
++       home = (int) (dbf->bucket->h_table[elem_loc].hash_value
++ 		    % dbf->header->bucket_elems);
++ #else /* not MSDOS */
+        home = dbf->bucket->h_table[elem_loc].hash_value
+  	     % dbf->header->bucket_elems;
++ #endif /* not MSDOS */
+        if ( (last_loc < elem_loc && (home <= last_loc || home > elem_loc))
+  	  || (last_loc > elem_loc && home <= last_loc && home > elem_loc))
+  
+diff -cbBwr orig/gdbmopen.c new/gdbmopen.c
+*** orig/gdbmopen.c	Fri Mar 22 17:26:34 1991
+--- new/gdbmopen.c	Thu May 23 20:05:14 1991
+***************
+*** 110,130 ****
+    need_trunc = FALSE;
+    if (read_write == GDBM_READER)
+      {
+!       dbf->desc = open (dbf->name, O_RDONLY, 0);
+      }
+    else if (read_write == GDBM_WRITER)
+      {
+!       dbf->desc = open (dbf->name, O_RDWR, 0);
+      }
+    else if (read_write == GDBM_NEWDB)
+      {
+!       dbf->desc = open (dbf->name, O_RDWR|O_CREAT, mode);
+        read_write = GDBM_WRITER;
+        need_trunc = TRUE;
+      }
+    else
+      {
+!       dbf->desc = open (dbf->name, O_RDWR|O_CREAT, mode);
+        read_write = GDBM_WRITER;
+      }
+    if (dbf->desc < 0)
+--- 110,130 ----
+    need_trunc = FALSE;
+    if (read_write == GDBM_READER)
+      {
+!       dbf->desc = open (dbf->name, O_RDONLY|O_BINARY, 0);
+      }
+    else if (read_write == GDBM_WRITER)
+      {
+!       dbf->desc = open (dbf->name, O_RDWR|O_BINARY, 0);
+      }
+    else if (read_write == GDBM_NEWDB)
+      {
+!       dbf->desc = open (dbf->name, O_RDWR|O_CREAT|O_BINARY, mode);
+        read_write = GDBM_WRITER;
+        need_trunc = TRUE;
+      }
+    else
+      {
+!       dbf->desc = open (dbf->name, O_RDWR|O_CREAT|O_BINARY, mode);
+        read_write = GDBM_WRITER;
+      }
+    if (dbf->desc < 0)
+***************
+*** 206,212 ****
+        dbf->header->block_size = file_block_size;
+  
+        /* Create the initial hash table directory.  */
+!       dbf->header->dir_size = 8 * sizeof (int);
+        dbf->header->dir_bits = 3;
+        while (dbf->header->dir_size < dbf->header->block_size)
+  	{
+--- 206,212 ----
+        dbf->header->block_size = file_block_size;
+  
+        /* Create the initial hash table directory.  */
+!       dbf->header->dir_size = 8 * sizeof (long);
+        dbf->header->dir_bits = 3;
+        while (dbf->header->dir_size < dbf->header->block_size)
+  	{
+***************
+*** 223,229 ****
+  	}
+  
+        /* Allocate the space for the directory. */
+!       dbf->dir = (int *) malloc (dbf->header->dir_size);
+        if (dbf->dir == NULL)
+  	{
+  	  gdbm_close (dbf);
+--- 223,229 ----
+  	}
+  
+        /* Allocate the space for the directory. */
+!       dbf->dir = (long *) malloc (dbf->header->dir_size);
+        if (dbf->dir == NULL)
+  	{
+  	  gdbm_close (dbf);
+***************
+*** 250,256 ****
+        dbf->bucket->bucket_avail[0].av_size = dbf->header->block_size;
+  
+        /* Set table entries to point to hash buckets. */
+!       for (index = 0; index < dbf->header->dir_size / sizeof (int); index++)
+  	dbf->dir[index] = 2*dbf->header->block_size;
+  
+        /* Initialize the active avail block. */
+--- 250,256 ----
+        dbf->bucket->bucket_avail[0].av_size = dbf->header->block_size;
+  
+        /* Set table entries to point to hash buckets. */
+!       for (index = 0; index < dbf->header->dir_size / sizeof (long); index++)
+  	dbf->dir[index] = 2*dbf->header->block_size;
+  
+        /* Initialize the active avail block. */
+***************
+*** 310,316 ****
+--- 310,320 ----
+  	}
+  
+        /* Is the magic number good? */
++ #ifdef MSDOS
++       if (partial_header.header_magic != 0x13579aceL)
++ #else /* not MSDOS */
+        if (partial_header.header_magic != 0x13579ace)
++ #endif /* not MSDOS */
+  	{
+  	  gdbm_close (dbf);
+  	  gdbm_errno = GDBM_BAD_MAGIC_NUMBER;
+***************
+*** 336,342 ****
+  	}
+  
+        /* Allocate space for the hash table directory.  */
+!       dbf->dir = (int *) malloc (dbf->header->dir_size);
+        if (dbf->dir == NULL)
+  	{
+  	  gdbm_close (dbf);
+--- 340,346 ----
+  	}
+  
+        /* Allocate space for the hash table directory.  */
+!       dbf->dir = (long *) malloc (dbf->header->dir_size);
+        if (dbf->dir == NULL)
+  	{
+  	  gdbm_close (dbf);
+diff -cbBwr orig/gdbmreor.c new/gdbmreor.c
+*** orig/gdbmreor.c	Fri Mar 22 17:26:34 1991
+--- new/gdbmreor.c	Thu May 23 20:34:12 1991
+***************
+*** 149,155 ****
+--- 149,162 ----
+  
+      /* Move the new file to old name. */
+  
++ #ifdef MSDOS
++   if (close (new_dbf->desc)
++       || unlink (dbf->name)
++       || rename (new_name, dbf->name)
++       || (new_dbf->desc = open (dbf->name, O_RDWR|O_BINARY)) < 0)
++ #else /* not MSDOS */
+    if (rename (new_name, dbf->name) != 0)
++ #endif /* not MSDOS */
+      {
+        gdbm_errno = GDBM_REORGANIZE_FAILED;
+        gdbm_close (new_dbf);
+diff -cbBwr orig/gdbmseq.c new/gdbmseq.c
+*** orig/gdbmseq.c	Fri Mar 22 17:26:34 1991
+--- new/gdbmseq.c	Thu May 23 19:54:52 1991
+***************
+*** 30,35 ****
+--- 30,41 ----
+  
+  #include "gdbmdefs.h"
+  
++ 
++ #ifdef __STDC__
++ static void get_next_key (gdbm_file_info *dbf, int elem_loc, datum *return_val);
++ #endif /* not __STDC__ */
++ 
++ 
+  /* Special extern for this file. */
+  extern char *_gdbm_read_entry ();
+  
+***************
+*** 60,71 ****
+  
+  	  /* Find the next bucket.  It is possible several entries in
+  	     the bucket directory point to the same bucket. */
+! 	  while (dbf->bucket_dir < dbf->header->dir_size / sizeof (int)
+  		 && dbf->cache_entry->ca_adr == dbf->dir[dbf->bucket_dir])
+  	    dbf->bucket_dir++;
+  
+  	  /* Check to see if there was a next bucket. */
+! 	  if (dbf->bucket_dir < dbf->header->dir_size / sizeof (int))
+  	    _gdbm_get_bucket (dbf, dbf->bucket_dir);
+  	  else
+  	    /* No next key, just return. */
+--- 66,77 ----
+  
+  	  /* Find the next bucket.  It is possible several entries in
+  	     the bucket directory point to the same bucket. */
+! 	  while (dbf->bucket_dir < dbf->header->dir_size / sizeof (long)
+  		 && dbf->cache_entry->ca_adr == dbf->dir[dbf->bucket_dir])
+  	    dbf->bucket_dir++;
+  
+  	  /* Check to see if there was a next bucket. */
+! 	  if (dbf->bucket_dir < dbf->header->dir_size / sizeof (long))
+  	    _gdbm_get_bucket (dbf, dbf->bucket_dir);
+  	  else
+  	    /* No next key, just return. */
+diff -cbBwr orig/gdbmstor.c new/gdbmstor.c
+*** orig/gdbmstor.c	Fri Mar 22 17:26:34 1991
+--- new/gdbmstor.c	Thu May 23 20:05:30 1991
+***************
+*** 123,129 ****
+--- 123,133 ----
+  	}
+  
+        /* Find space to insert into bucket and set elem_loc to that place. */
++ #ifdef MSDOS
++       elem_loc = (int) (new_hash_val % dbf->header->bucket_elems);
++ #else /* not MSDOS */
+        elem_loc = new_hash_val % dbf->header->bucket_elems;
++ #endif /* not MSDOS */
+        while (dbf->bucket->h_table[elem_loc].hash_value != -1)
+  	{  elem_loc = (elem_loc + 1) % dbf->header->bucket_elems; }
+  
+***************
+*** 142,147 ****
+--- 146,158 ----
+  
+    /* Prepare write_data. The key is written first.  */
+    write_data = (char *) alloca (key.dsize+content.dsize);
++ #ifdef MSDOS
++   if (write_data == (char *) 0)
++     {
++       fprintf (stderr, "Error: alloca() failed in gdbm (%s).\n", __FILE__);
++       exit (-2);
++     }
++ #endif /* MSDOS */
+    dst = write_data;
+    src = key.dptr;
+    for (cnt=0; cnt < key.dsize; cnt++)
+diff -cbBwr orig/global.c new/global.c
+*** orig/global.c	Fri Mar 22 17:26:36 1991
+--- new/global.c	Thu May 23 21:01:16 1991
+***************
+*** 41,44 ****
+--- 41,48 ----
+  char *_gdbm_fetch_val = NULL;	/* Used by fetch. */
+  
+  /* The dbm error number is placed in the variable GDBM_ERRNO. */
++ #ifdef MSDOS		/* won't go into library if not initialized!  */
++ gdbm_error gdbm_errno = GDBM_NO_ERROR;
++ #else /* not MSDOS */
+  gdbm_error gdbm_errno;
++ #endif /* not MSDOS */
+diff -cbBwr orig/ndbm.h new/ndbm.h
+*** orig/ndbm.h	Fri Mar 22 17:26:36 1991
+--- new/ndbm.h	Thu May 23 19:27:24 1991
+***************
+*** 33,70 ****
+  
+  
+  /* The data and key structure.  This structure is defined for compatibility. */
+  typedef struct {
+  	char *dptr;
+  	int   dsize;
+        } datum;
+  
+- 
+  /* The file information header. This is good enough for most applications. */
+  typedef struct {int dummy[10];} DBM;
+! 
+  
+  /* These are the routines (with some macros defining them!) */
+  
+  extern DBM 	*dbm_open ();
+- 
+  extern void	 dbm_close ();
+- 
+  extern datum	 dbm_fetch ();
+- 
+  extern int	 dbm_store ();
+- 
+- extern int	 dbm_delete ();
+- 
+  extern int	 dbm_delete ();
+- 
+  extern datum	 dbm_firstkey ();
+- 
+  extern datum	 dbm_nextkey ();
+  
+  #define		 dbm_error(dbf)  0
+- 
+  #define		 dbm_clearerr(dbf)
+  
+- extern int	 dbm_dirfno ();
+  
+- extern int	 dbm_pagfno ();
+--- 33,79 ----
+  
+  
+  /* The data and key structure.  This structure is defined for compatibility. */
++ #ifdef __STDC__
++ #include "gdbmdefs.h"
++ #else /* not __STDC__ */
+  typedef struct {
+  	char *dptr;
+  	int   dsize;
+        } datum;
++ #endif /* not __STDC__ */
+  
+  /* The file information header. This is good enough for most applications. */
++ #ifdef __STDC__
++ #define DBM gdbm_file_info
++ #else /* not __STDC__ */
+  typedef struct {int dummy[10];} DBM;
+! #endif /* not __STDC__ */
+  
+  /* These are the routines (with some macros defining them!) */
+  
++ #ifdef __STDC__
++ extern DBM *dbm_open (char *file, int flags, int mode);
++ extern void dbm_close (DBM *dbf);
++ extern datum dbm_fetch (DBM *dbf, datum key);
++ extern int dbm_store (DBM *dbf, datum key, datum content, int flags);
++ extern int dbm_delete (DBM *dbf, datum key);
++ extern datum dbm_firstkey (DBM *dbf);
++ extern datum dbm_nextkey (DBM *dbf);
++ extern int dbm_dirfno (DBM *dbf);
++ extern int dbm_pagfno (DBM *dbf);
++ #else /* not __STDC__ */
+  extern DBM 	*dbm_open ();
+  extern void	 dbm_close ();
+  extern datum	 dbm_fetch ();
+  extern int	 dbm_store ();
+  extern int	 dbm_delete ();
+  extern datum	 dbm_firstkey ();
+  extern datum	 dbm_nextkey ();
++ extern int	 dbm_dirfno ();
++ extern int	 dbm_pagfno ();
++ #endif /* not __STDC__ */
+  
+  #define		 dbm_error(dbf)  0
+  #define		 dbm_clearerr(dbf)
+  
+  
+diff -cbBwr orig/README new/readme
+*** orig/README	Fri Mar 22 17:26:34 1991
+--- new/readme	Thu May 23 21:55:46 1991
+***************
+*** 1,3 ****
+--- 1,26 ----
++ /*
++  * MS-DOS port (c) 1990 by Thorsten Ohl, td12@@ddagsi3.bitnet
++  *
++  * To this port, the same copying conditions apply as to the
++  * original release.
++  *
++  * IMPORTANT:
++  * These files are not identical to the original GNU release!
++  * You should have received this code as patch to the official
++  * GNU release.
++  *
++  * MORE IMPORTANT:
++  * This port comes with ABSOLUTELY NO WARRANTY.
++  */
++ 
++ Note: This port was done for 1.4.
++ I have applied a part of it to 1.5 and made some minor further changes
++ 
++ Kai Uwe Rommel
++ rommel@lan.informatik.tu-muenchen.dbp.de
++ -----------
++ 
++ 
+  This is release 1.5 of GNU dbm.  Better documentation will be written
+  soon.  For now, this file briefly describes the contents of this
+  release and how to use it.
+diff -cbBwr orig/systems.h new/systems.h
+*** orig/systems.h	Fri Mar 22 17:26:36 1991
+--- new/systems.h	Thu May 23 19:57:54 1991
+***************
+*** 35,45 ****
+--- 35,55 ----
+  #ifdef SYSV
+  
+  /* File seeking needs L_SET defined .*/
++ #ifdef MSDOS
++ #include <malloc.h>
++ #include <io.h>
++ #else /* not MSDOS */
+  #include <unistd.h>
++ #endif /* not MSDOS */
+  #define L_SET SEEK_SET
+  
+  /* Some files need fcntl.h for locking. */
+  #include <fcntl.h>
++ #ifdef MSDOS
++ #define UNLOCK_FILE(dbf)	/* later !!!  */
++ #define READLOCK_FILE(dbf)	lock_val = 0;
++ #define WRITELOCK_FILE(dbf)	lock_val = 0;
++ #else /* not MSDOS */
+  #define UNLOCK_FILE(dbf) \
+  	{					\
+  	  struct flock flock;			\
+***************
+*** 64,69 ****
+--- 74,80 ----
+  	  flock.l_start = flock.l_len = 0L;	\
+  	  lock_val = fcntl (dbf->desc, F_SETLK, &flock);	\
+  	}
++ #endif /* not MSDOS */
+  
+  /* Send bcmp to the right place. */
+  #include <memory.h>
+***************
+*** 71,83 ****
+--- 82,100 ----
+  #define bcopy(d1, d2, n) memcpy(d2, d1, n)
+  
+  /* Sys V does not have fsync. */
++ #ifdef MSDOS
++ #define fsync(f)
++ #else /* not MSDOS */
+  #define fsync(f) sync(); sync()
++ #endif /* not MSDOS */
+  
+  /* Stat does not have a st_blksize field. */
+  #define STATBLKSIZE 512
+  
+  /* Does not have rename(). */
++ #ifndef MSDOS
+  #define NEED_RENAME
++ #endif /* not MSDOS */
+  
+  /* Get string definitions. */
+  #include <string.h>
+***************
+*** 92,98 ****
+  /**************************************************/
+  
+  
+! 
+  /* Alloca is builtin in gcc.  Use the builtin alloca if compiled with gcc. */
+  #ifdef __GNUC__
+  #define BUILTIN_ALLOCA
+--- 109,115 ----
+  /**************************************************/
+  
+  
+! #ifndef MSDOS
+  /* Alloca is builtin in gcc.  Use the builtin alloca if compiled with gcc. */
+  #ifdef __GNUC__
+  #define BUILTIN_ALLOCA
+***************
+*** 114,119 ****
+--- 131,137 ----
+  
+  /* Malloc definition. */
+  extern char *malloc();
++ #endif /* not MSDOS */
+  
+  /* String definitions. */
+  #ifndef _HAVE_STRING
+diff -cbBwr orig/testdbm.c new/testdbm.c
+*** orig/testdbm.c	Fri Mar 22 17:26:36 1991
+--- new/testdbm.c	Thu May 23 21:18:28 1991
+***************
+*** 30,41 ****
+--- 30,48 ----
+  
+  #include <stdio.h>
+  #include <sys/types.h>
++ #ifndef MSDOS
+  #include <sys/file.h>
++ #endif /* not MSDOS */
+  #include <sys/stat.h>
+  
+  #define TRUE  1
+  #define FALSE 0
+  
++ #ifdef __STDC__
++ #include <stdlib.h>
++ #include <string.h>
++ #include "dbm.h"
++ #else /* not __STDC__ */
+  typedef struct {
+    char *dptr;
+    int   dsize;
+***************
+*** 44,49 ****
+--- 51,57 ----
+  extern datum fetch ();
+  extern datum firstkey ();
+  extern datum nextkey ();
++ #endif /* not __STDC__ */
+  
+  /* The test program allows one to call all the routines plus the hash function.
+     The commands are single letter commands.  The user is prompted for all other
+***************
+*** 50,61 ****
+     information.  The commands are q (quit), f (fetch), s (store), d (delete),
+     1 (firstkey), n (nextkey) and h (hash function). */
+  
+  main (argc, argv)
+       int argc;
+       char *argv[];
+  {
+  
+!   char  cmd_ch;
+  
+    datum key_data;
+    datum data_data;
+--- 58,70 ----
+     information.  The commands are q (quit), f (fetch), s (store), d (delete),
+     1 (firstkey), n (nextkey) and h (hash function). */
+  
++ void
+  main (argc, argv)
+       int argc;
+       char *argv[];
+  {
+  
+!   int  cmd_ch;
+  
+    datum key_data;
+    datum data_data;
+diff -cbBwr orig/testgdbm.c new/testgdbm.c
+*** orig/testgdbm.c	Fri Mar 22 17:26:36 1991
+--- new/testgdbm.c	Thu May 23 21:15:30 1991
+***************
+*** 43,49 ****
+--- 43,132 ----
+  
+  gdbm_file_info *gdbm_file;
+  
++ #ifdef __STDC__
++ void _gdbm_print_bucket_cache (gdbm_file_info *dbf);
++ static void print_bucket (hash_bucket *bucket, char *mesg);
++ static void _gdbm_print_avail_list (gdbm_file_info *dbf);
++ void main (int argc, char **argv);
++ void usage (char *s);
++ void gdbm_perror (char *msg);
++ extern int getopt (int argc, char **argv, const char *shortopts);
++ #endif /* __STDC__ */
++ 
++ 
++ /* access GDBM_ERRNO.  [tho]  */
++ 
++ void
++ gdbm_perror (char *msg)
++ {
++   char *err_msg;
++ 
++   switch (gdbm_errno)
++     {
++     case GDBM_NO_ERROR:
++       err_msg = "no error";
++       break;
++     case GDBM_MALLOC_ERROR:
++       err_msg = "can't malloc";
++       break;
++     case GDBM_BLOCK_SIZE_ERROR:
++       err_msg = "bad block size";
++       break;
++     case GDBM_FILE_OPEN_ERROR:
++       err_msg = "can't open file";
++       break;
++     case GDBM_FILE_WRITE_ERROR:
++       err_msg = "can't write file";
++       break;
++     case GDBM_FILE_SEEK_ERROR:
++       err_msg = "can't seek file";
++       break;
++     case GDBM_FILE_READ_ERROR:
++       err_msg = "can't read file";
++       break;
++     case GDBM_BAD_MAGIC_NUMBER:
++       err_msg = "bad magic number";
++       break;
++     case GDBM_EMPTY_DATABASE:
++       err_msg = "empty database";
++       break;
++     case GDBM_CANT_BE_READER:
++       err_msg = "can't be reader";
++       break;
++     case GDBM_CANT_BE_WRITER:
++       err_msg = "can't be writer";
++       break;
++     case GDBM_READER_CANT_DELETE:
++       err_msg = "can't delete";
++       break;
++     case GDBM_READER_CANT_STORE:
++       err_msg = "can't store";
++       break;
++     case GDBM_READER_CANT_REORGANIZE:
++       err_msg = "can't reorganize";
++       break;
++     case GDBM_UNKNOWN_UPDATE:
++       err_msg = "unkown update";
++       break;
++     case GDBM_ITEM_NOT_FOUND:
++       err_msg = "item not found";
++       break;
++     case GDBM_REORGANIZE_FAILED:
++       err_msg = "reorganization failed";
++       break;
++     case GDBM_CANNOT_REPLACE:
++       err_msg = "can't replace";
++       break;
++     default:
++       err_msg = "unknown error";
++     }
++ 
++   fprintf (stderr, "%s (GDBM error: %s)\n", msg, err_msg);
++ }
++ 
++ 
+  /* Debug procedure to print the contents of the current hash bucket. */
++ void
+  print_bucket (bucket, mesg)
+       hash_bucket *bucket;
+       char *mesg;
+***************
+*** 54,59 ****
+--- 137,150 ----
+  	 mesg, bucket->bucket_bits, bucket->count);
+    printf ("     #    hash value     key size    data size     data adr  home\n");
+    for (index = 0; index < gdbm_file->header->bucket_elems; index++)
++ #ifdef MSDOS
++     printf ("  %4d  %12lx  %11d  %11d  %11ld %5d\n", index,
++ 	   bucket->h_table[index].hash_value,
++ 	   bucket->h_table[index].key_size,
++ 	   bucket->h_table[index].data_size,
++ 	   bucket->h_table[index].data_pointer,
++ 	   (int) (bucket->h_table[index].hash_value % gdbm_file->header->bucket_elems));
++ #else /* not MSDOS */
+      printf ("  %4d  %12x  %11d  %11d  %11d %5d\n", index,
+  	   bucket->h_table[index].hash_value,
+  	   bucket->h_table[index].key_size,
+***************
+*** 60,78 ****
+  	   bucket->h_table[index].data_size,
+  	   bucket->h_table[index].data_pointer,
+  	   bucket->h_table[index].hash_value % gdbm_file->header->bucket_elems);
+  
+    printf ("\nAvail count = %1d\n", bucket->av_count);
+    printf ("Avail  adr     size\n");
+    for (index = 0; index < bucket->av_count; index++)
+      printf ("%9d%9d\n", bucket->bucket_avail[index].av_adr,
+  	                bucket->bucket_avail[index].av_size);
+  }
+  
+  
+  _gdbm_print_avail_list (dbf)
+       gdbm_file_info *dbf;
+  {
+!   int temp;
+    int size;
+    avail_block *av_stk;
+  
+--- 151,175 ----
+  	   bucket->h_table[index].data_size,
+  	   bucket->h_table[index].data_pointer,
+  	   bucket->h_table[index].hash_value % gdbm_file->header->bucket_elems);
++ #endif /* not MSDOS */
+  
+    printf ("\nAvail count = %1d\n", bucket->av_count);
+    printf ("Avail  adr     size\n");
+    for (index = 0; index < bucket->av_count; index++)
++ #ifdef MSDOS
++     printf ("%9ld%9d\n", bucket->bucket_avail[index].av_adr,
++ #else /* not MSDOS */
+      printf ("%9d%9d\n", bucket->bucket_avail[index].av_adr,
++ #endif /* not MSDOS */
+  	                bucket->bucket_avail[index].av_size);
+  }
+  
+  
++ void
+  _gdbm_print_avail_list (dbf)
+       gdbm_file_info *dbf;
+  {
+!   long temp;
+    int size;
+    avail_block *av_stk;
+  
+***************
+*** 81,87 ****
+--- 178,188 ----
+  	  dbf->header->avail.size, dbf->header->avail.count);
+    for (temp = 0; temp < dbf->header->avail.count; temp++)
+      {
++ #ifdef MSDOS
++       printf ("  %15d   %10ld \n", dbf->header->avail.av_table[temp].av_size,
++ #else /* not MSDOS */
+        printf ("  %15d   %10d \n", dbf->header->avail.av_table[temp].av_size,
++ #endif /* not MSDOS */
+  	      dbf->header->avail.av_table[temp].av_adr);
+      }
+  
+***************
+*** 90,95 ****
+--- 191,203 ----
+    size = ( ( (dbf->header->avail.size * sizeof (avail_elem)) >> 1)
+  	  + sizeof (avail_block));
+    av_stk = (avail_block *) alloca (size);
++ #ifdef MSDOS
++   if (av_stk == (avail_block *) 0)
++     {
++       fprintf (stderr, "Error: alloca() failed in gdbm (%s).\n", __FILE__);
++       exit (-2);
++     }
++ #endif /* MSDOS */
+  
+    /* Print the stack. */
+    while (FALSE)
+***************
+*** 102,108 ****
+--- 210,220 ----
+  	      av_stk->size, av_stk->count);
+        for (temp = 0; temp < av_stk->count; temp++)
+  	{
++ #ifdef MSDOS
++ 	  printf ("  %15d   %10ld \n", av_stk->av_table[temp].av_size,
++ #else /* not MSDOS */
+  	  printf ("  %15d   %10d \n", av_stk->av_table[temp].av_size,
++ #endif /* not MSDOS */
+  	    av_stk->av_table[temp].av_adr);
+  	}
+        temp = av_stk->next_block;
+***************
+*** 109,115 ****
+      }
+  }
+  
+! _gdbm_print_bucket_cache (dbf)
+       gdbm_file_info *dbf;
+  {
+    int index;
+--- 221,227 ----
+      }
+  }
+  
+! void _gdbm_print_bucket_cache (dbf)
+       gdbm_file_info *dbf;
+  {
+    int index;
+***************
+*** 119,125 ****
+--- 231,241 ----
+    for (index=0; index < CACHE_SIZE; index++)
+      {
+        changed = dbf->bucket_cache[index].ca_changed;
++ #ifdef MSDOS
++       printf ("  %5d:  %7ld  %7s  %lx\n",
++ #else /* not MSDOS */
+        printf ("  %5d:  %7d  %7s  %x\n",
++ #endif /* not MSDOS */
+  	      index,
+  	      dbf->bucket_cache[index].ca_adr,
+  	      (changed ? "True" : "False"),
+***************
+*** 139,144 ****
+--- 255,261 ----
+     The commands are single letter commands.  The user is prompted for all other
+     information.  See the help command (?) for a list of all commands. */
+  
++ void
+  main (argc, argv)
+       int argc;
+       char *argv[];
+***************
+*** 145,151 ****
+  
+  {
+  
+!   char  cmd_ch;
+  
+    datum key_data;
+    datum data_data;
+--- 262,269 ----
+  
+  {
+  
+!   int  cmd_ch;
+!   int  opt;
+  
+    datum key_data;
+    datum data_data;
+***************
+*** 155,161 ****
+    char data_line[1000];
+  
+    char done = FALSE;
+-   char opt;
+    char reader = FALSE;
+    char newdb = FALSE;
+  
+--- 273,278 ----
+***************
+*** 180,186 ****
+--- 297,307 ----
+      }
+    else
+      {
++ #ifdef MSDOS
++       file_name = "junk.gdb";
++ #else
+        file_name = "junk.gdbm";
++ #endif
+      }
+  
+    /* Initialize variables. */
+***************
+*** 195,204 ****
+      gdbm_file = gdbm_open (file_name, 512, GDBM_WRCREAT, 00664, NULL);
+    if (gdbm_file == NULL)
+      {
+!       if (gdbm_errno != GDBM_CANT_BE_WRITER)
+! 	printf ("gdbm_open failed.\n");
+!       else
+! 	printf ("Can't open as a writer. \n");
+        exit (2);
+      }
+  
+--- 316,322 ----
+      gdbm_file = gdbm_open (file_name, 512, GDBM_WRCREAT, 00664, NULL);
+    if (gdbm_file == NULL)
+      {
+!       gdbm_perror ("gdbm_open failed");
+        exit (2);
+      }
+  
+***************
+*** 208,219 ****
+--- 326,345 ----
+    while (!done)
+      {
+        printf ("com -> ");
++ #ifdef MSDOS			/* shut up the compiler */
++       cmd_ch = (char) getchar ();
++ #else /* not MSDOS */
+        cmd_ch = getchar ();
++ #endif /* not MSDOS */
+        if (cmd_ch != '\n')
+  	{
+  	  char temp;
+  	  do
++ #ifdef MSDOS			/* shut up the compiler */
++ 	      temp = (char) getchar ();
++ #else /* not MSDOS */
+  	      temp = getchar ();
++ #endif /* not MSDOS */
+  	  while (temp != '\n' && temp != EOF);
+  	}
+        if (cmd_ch == EOF) cmd_ch = 'q';
+***************
+*** 250,256 ****
+  	  key_data.dptr = key_line;
+  	  key_data.dsize = strlen (key_line)+1;
+  	  if (gdbm_delete (gdbm_file, key_data) != 0)
+! 	    printf ("Item not found or deleted\n");
+  	  printf ("\n");
+  	  key_data.dptr = NULL;
+  	  break;
+--- 376,382 ----
+  	  key_data.dptr = key_line;
+  	  key_data.dsize = strlen (key_line)+1;
+  	  if (gdbm_delete (gdbm_file, key_data) != 0)
+! 	    gdbm_perror ("Item not found or deleted");
+  	  printf ("\n");
+  	  key_data.dptr = NULL;
+  	  break;
+***************
+*** 289,295 ****
+  	    }
+  	  else
+  	    {
+! 	      printf ("No such item found.\n\n");
+  	      key_data.dptr = NULL;
+  	    }
+  	  break;
+--- 415,421 ----
+  	    }
+  	  else
+  	    {
+! 	      gdbm_perror ("No such item found");
+  	      key_data.dptr = NULL;
+  	    }
+  	  break;
+***************
+*** 308,314 ****
+  	  gets (data_line);
+  	  data_data.dsize = strlen (data_line)+1;
+  	  if (gdbm_store (gdbm_file, key_data, data_data, GDBM_REPLACE) != 0)
+! 	    printf ("Item not inserted. \n");
+  	  printf ("\n");
+  	  key_data.dptr = NULL;
+  	  break;
+--- 434,440 ----
+  	  gets (data_line);
+  	  data_data.dsize = strlen (data_line)+1;
+  	  if (gdbm_store (gdbm_file, key_data, data_data, GDBM_REPLACE) != 0)
+! 	    gdbm_perror ("Item not inserted");
+  	  printf ("\n");
+  	  key_data.dptr = NULL;
+  	  break;
+***************
+*** 324,330 ****
+  	      free (return_data.dptr);
+  	    }
+  	  else
+! 	    printf ("No such item found.\n\n");
+  	  break;
+  
+  	case '2':
+--- 450,456 ----
+  	      free (return_data.dptr);
+  	    }
+  	  else
+! 	    gdbm_perror ("No such item found");
+  	  break;
+  
+  	case '2':
+***************
+*** 339,345 ****
+  	      free (return_data.dptr);
+  	    }
+  	  else
+! 	    printf ("No such item found.\n\n");
+  	  break;
+  
+  
+--- 465,471 ----
+  	      free (return_data.dptr);
+  	    }
+  	  else
+! 	    gdbm_perror ("No such item found");
+  	  break;
+  
+  
+***************
+*** 347,353 ****
+  	case 'r':
+  	  {
+  	    if (gdbm_reorganize (gdbm_file))
+! 	      printf ("Reorganization failed. \n\n");
+  	    else
+  	      printf ("Reorganization succeeded. \n\n");
+  	  }
+--- 473,479 ----
+  	case 'r':
+  	  {
+  	    if (gdbm_reorganize (gdbm_file))
+! 	      gdbm_perror ("Reorganization failed");
+  	    else
+  	      printf ("Reorganization succeeded. \n\n");
+  	  }
+***************
+*** 369,375 ****
+  
+  	    if (temp >= gdbm_file->header->dir_size /4)
+  	      {
+! 		printf ("Not a bucket. \n\n");
+  		break;
+  	      }
+  	    _gdbm_get_bucket (gdbm_file, temp);
+--- 495,501 ----
+  
+  	    if (temp >= gdbm_file->header->dir_size /4)
+  	      {
+! 		gdbm_perror ("Not a bucket");
+  		break;
+  	      }
+  	    _gdbm_get_bucket (gdbm_file, temp);
+***************
+*** 379,385 ****
+--- 505,515 ----
+  	case 'C':
+  	  print_bucket (gdbm_file->bucket, "Current bucket");
+  	  printf ("\n current directory entry = %d.\n", gdbm_file->bucket_dir);
++ #ifdef MSDOS
++ 	  printf (" current bucket address  = %ld.\n\n",
++ #else /* not MSDOS */
+  	  printf (" current bucket address  = %d.\n\n",
++ #endif /* not MSDOS */
+  		  gdbm_file->cache_entry->ca_adr);
+  	  break;
+  
+***************
+*** 392,398 ****
+--- 522,532 ----
+  
+  	    for (temp = 0; temp < gdbm_file->header->dir_size / 4; temp++)
+  	      {
++ #ifdef MSDOS
++ 		printf ("  %10d:  %12ld\n", temp, gdbm_file->dir[temp]);
++ #else /* not MSDOS */
+  		printf ("  %10d:  %12d\n", temp, gdbm_file->dir[temp]);
++ #endif /* not MSDOS */
+  		if ( (temp+1) % 20 == 0 && isatty (0))
+  		  {
+  		    printf ("*** CR to continue: ");
+***************
+*** 406,418 ****
+  	case 'F':
+  	  {
+  	    printf ("\nFile Header: \n\n");
+! 	    printf ("  table        = %d\n", gdbm_file->header->dir);
+  	    printf ("  table size   = %d\n", gdbm_file->header->dir_size);
+  	    printf ("  table bits   = %d\n", gdbm_file->header->dir_bits);
+  	    printf ("  block size   = %d\n", gdbm_file->header->block_size);
+  	    printf ("  bucket elems = %d\n", gdbm_file->header->bucket_elems);
+  	    printf ("  bucket size  = %d\n", gdbm_file->header->bucket_size);
+! 	    printf ("  header magic = %x\n", gdbm_file->header->header_magic);
+  	    printf ("  next block   = %d\n", gdbm_file->header->next_block);
+  	    printf ("  avail size   = %d\n", gdbm_file->header->avail.size);
+  	    printf ("  avail count  = %d\n", gdbm_file->header->avail.count);
+--- 540,552 ----
+  	case 'F':
+  	  {
+  	    printf ("\nFile Header: \n\n");
+! 	    printf ("  table        = %ld\n", gdbm_file->header->dir);
+  	    printf ("  table size   = %d\n", gdbm_file->header->dir_size);
+  	    printf ("  table bits   = %d\n", gdbm_file->header->dir_bits);
+  	    printf ("  block size   = %d\n", gdbm_file->header->block_size);
+  	    printf ("  bucket elems = %d\n", gdbm_file->header->bucket_elems);
+  	    printf ("  bucket size  = %d\n", gdbm_file->header->bucket_size);
+! 	    printf ("  header magic = %lx\n", gdbm_file->header->header_magic);
+  	    printf ("  next block   = %d\n", gdbm_file->header->next_block);
+  	    printf ("  avail size   = %d\n", gdbm_file->header->avail.size);
+  	    printf ("  avail count  = %d\n", gdbm_file->header->avail.count);
+***************
+*** 427,433 ****
+--- 561,571 ----
+  	  gets (key_line);
+  	  key_data.dptr = key_line;
+  	  key_data.dsize = strlen (key_line)+1;
++ #ifdef MSDOS
++ 	  printf ("hash value = %lx. \n\n", _gdbm_hash (key_data));
++ #else /* not MSDOS */
+  	  printf ("hash value = %x. \n\n", _gdbm_hash (key_data));
++ #endif /* not MSDOS */
+  	  key_data.dptr = NULL;
+  	  break;
+  
+diff -cbBwr orig/testndbm.c new/testndbm.c
+*** orig/testndbm.c	Fri Mar 22 17:26:36 1991
+--- new/testndbm.c	Thu May 23 21:16:30 1991
+***************
+*** 30,36 ****
+--- 30,38 ----
+  
+  #include <stdio.h>
+  #include <sys/types.h>
++ #ifndef MSDOS
+  #include <sys/file.h>
++ #endif /* not MSDOS */
+  #include <sys/stat.h>
+  #ifdef SYSV
+  #include <fcntl.h>
+***************
+*** 50,61 ****
+     information.  The commands are q (quit), f (fetch), s (store), d (delete),
+     1 (firstkey), n (nextkey) and h (hash function). */
+  
+  main (argc, argv)
+       int argc;
+       char *argv[];
+  {
+  
+!   char  cmd_ch;
+  
+    datum key_data;
+    datum data_data;
+--- 52,64 ----
+     information.  The commands are q (quit), f (fetch), s (store), d (delete),
+     1 (firstkey), n (nextkey) and h (hash function). */
+  
++ void
+  main (argc, argv)
+       int argc;
+       char *argv[];
+  {
+  
+!   int  cmd_ch;
+  
+    datum key_data;
+    datum data_data;
+diff -cbBwr orig/update.c new/update.c
+*** orig/update.c	Fri Mar 22 17:26:36 1991
+--- new/update.c	Thu May 23 20:01:20 1991
+***************
+*** 31,39 ****
+  #include "gdbmdefs.h"
+  
+  
+  /* This procedure writes the header back to the file described by DBF. */
+  
+! static
+  write_header (dbf)
+       gdbm_file_info *dbf;
+  {
+--- 31,44 ----
+  #include "gdbmdefs.h"
+  
+  
++ #ifdef __STDC__
++ static void write_header (gdbm_file_info *dbf);
++ #endif /* __STDC__ */
++ 
++ 
+  /* This procedure writes the header back to the file described by DBF. */
+  
+! static void
+  write_header (dbf)
+       gdbm_file_info *dbf;
+  {
+***************
+*** 53,58 ****
+--- 58,64 ----
+  
+  /* After all changes have been made in memory, we now write them
+     all to disk. */
++ void
+  _gdbm_end_update (dbf)
+       gdbm_file_info *dbf;
+  {
+***************
+*** 103,108 ****
+--- 109,115 ----
+  
+  /* If a fatal error is detected, come here and exit. VAL tells which fatal
+     error occured. */
++ void
+  _gdbm_fatal (dbf, val)
+       gdbm_file_info *dbf;
+       char *val;

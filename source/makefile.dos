@@ -1,0 +1,138 @@
+# Makefile for gdbm for DOS (for GNU make).
+
+BINDIR = c:/bin
+LIBDIR = d:/usr/lib
+INCDIR = d:/usr/include
+
+INSTALL = cp -v
+DISK	= b:
+ZIPFILE = gdbm.zip
+
+MODEL	= L
+CFLAGS	= -Ox -W4 -A$(MODEL) -DSYSV -Za
+LDFLAGS	= /st:0x8000 /e
+AR	= lib
+ARFLAGS	= -+
+
+GDBMLIB	= $(MODEL)gdbm.lib
+
+
+DBM_CF = dbminit.c delete.c fetch.c store.c seq.c
+NDBM_CF = dbmopen.c dbmdelet.c dbmfetch.c dbmstore.c dbmseq.c \
+	dbmclose.c dbmdirfn.c dbmpagfn.c
+GDBM_CF = gdbmopen.c gdbmdele.c gdbmfetc.c  gdbmstor.c gdbmclos.c \
+	gdbmreor.c gdbmseq.c \
+	bucket.c falloc.c findkey.c global.c hash.c update.c version.c
+
+HFILES = gdbmdefs.h extern.h gdbmerrn.h systems.h dbm.h ndbm.h
+
+MSCFILES = copying changelo makefile readme gdbm.pro conv2gdb.c
+
+TESTFILES = testdbm.c testndbm.c testgdbm.c
+
+
+RCSFILES= $(patsubst %, RCS/%'v, $(DBM_CF) $(NBM_CF) $(GBM_CF)) \
+	  RCS/makefile.'v
+MISC	= RCS/readme'v changelo RCS/changelo.'v makepat mkpatch
+
+DBM_OF = dbminit.obj delete.obj fetch.obj store.obj seq.obj
+NDBM_OF = dbmopen.obj dbmdelet.obj dbmfetch.obj dbmstore.obj dbmseq.obj \
+	dbmclose.obj dbmdirfn.obj dbmpagfn.obj
+GDBM_OF = gdbmopen.obj gdbmdele.obj gdbmfetc.obj  gdbmstor.obj gdbmclos.obj \
+	gdbmreor.obj gdbmseq.obj \
+	bucket.obj falloc.obj findkey.obj global.obj hash.obj update.obj
+
+
+.PHONY: allgdbm
+allgdbm: $(GDBMLIB) testgdbm.exe testdbm.exe testndbm.exe
+
+.PHONY: install
+install: $(GDBMLIB) gdbmdefs.h
+	cp $(GDBMLIB) $(LIBDIR)
+	cp gdbmdefs.h $(INCDIR)
+
+$(GDBMLIB): version.c $(GDBM_OF) $(NDBM_OF) $(DBM_OF)
+	$(CC) $(CFLAGS) -c version.c
+	$(AR) $@ $(ARFLAGS) version $(subst version.c,,$?);
+
+gdbm.h:	gdbm.pro gdbmerrn.h
+	cp gdbm.pro gdbm.h
+	grep _ gdbmerrn.h >> gdbm.h
+
+gdbm.pro: RCS/gdbm.p'v
+	$(CO) $(COFLAGS) $@
+
+testgdbm.exe: testgdbm.obj $(GDBMLIB)
+	$(LINK) $(LDFLAGS) testgdbm, $@,, $(GDBMLIB);
+
+testdbm.exe: testdbm.obj $(GDBMLIB)
+	$(LINK) $(LDFLAGS) testdbm, $@,, $(GDBMLIB);
+
+testndbm.obj: testndbm.c
+	$(CC) -c $(CFLAGS) -DGNU testndbm.c
+
+testndbm.exe: testndbm.obj $(GDBMLIB)
+	$(LINK) $(LDFLAGS) testndbm, $@,, $(GDBMLIB);
+
+
+.PHONY: zip disk
+zip: $(ZIPFILE)
+disk: $(DISK)/$(ZIPFILE)
+
+$(ZIPFILE): $(RCSFILES) $(MISC)
+	pkzip -frp $@
+
+$(DISK)/$(ZIPFILE): $(ZIPFILE)
+	cp $< $@
+	pkunzip -t $@ | grep -vw OK
+
+.PHONY: clean
+clean:
+	rm -f gdbm.h *.obj *.map *.bak tags
+	rcsclean *.c *.h *.pro makefile
+
+tags: $(GDBM_CF) $(HFILES) $(TESTFILES) $(NDBM_CF) $(DBM_CF) 
+	etags -t *.c *.h
+
+# dbm files
+dbminit.obj:	gdbmdefs.h extern.h gdbmerrn.h systems.h
+delete.obj:	gdbmdefs.h extern.h
+fetch.obj:	gdbmdefs.h extern.h
+store.obj:	gdbmdefs.h extern.h
+seq.obj:	gdbmdefs.h extern.h
+
+# ndbm files
+dbmopen.obj:	gdbmdefs.h extern.h gdbmerrn.h systems.h
+dbmdelet.obj:	gdbmdefs.h extern.h
+dbmfetch.obj:	gdbmdefs.h extern.h
+dbmstore.obj:	gdbmdefs.h extern.h
+dbmseq.obj:	gdbmdefs.h extern.h
+dbmclose.obj:	gdbmdefs.h systems.h
+dbmpagfn.obj:	gdbmdefs.h extern.h
+dbmdirfn.obj:	gdbmdefs.h extern.h
+
+
+# gdbm files
+gdbmclos.obj:	gdbmdefs.h systems.h
+gdbmdele.obj:	gdbmdefs.h gdbmerrn.h systems.h
+gdbmfetc.obj:	gdbmdefs.h gdbmerrn.h systems.h
+gdbmopen.obj:	gdbmdefs.h gdbmerrn.h systems.h 
+gdbmreor.obj:	gdbmdefs.h gdbmerrn.h systems.h extern.h
+gdbmseq.obj:	gdbmdefs.h systems.h
+gdbmstor.obj:	gdbmdefs.h gdbmerrn.h systems.h
+
+# gdbm support files
+bucket.obj:	gdbmdefs.h systems.h
+falloc.obj:	gdbmdefs.h systems.h
+findkey.obj:	gdbmdefs.h systems.h
+global.obj:	gdbmdefs.h gdbmerrn.h 
+hash.obj:		gdbmdefs.h
+update.obj:	gdbmdefs.h systems.h
+version.obj:
+extern.h:	
+
+# other programs
+testgdbm.obj:	gdbmdefs.h extern.h gdbmerrn.h systems.h
+testdbm.obj:	dbm.h
+testndbm.obj:	ndbm.h
+conv2gdb.obj:	gdbm.h
